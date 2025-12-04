@@ -215,3 +215,39 @@ exports.resendVerificationCode = async (req, res) => {
     });
   }
 };
+
+exports.googleCallback = (req, res) => {
+  const token = signToken(req.user._id);
+
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() +
+        (process.env.JWT_COOKIE_EXPIRES_IN || 7) * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  };
+
+  res.cookie("jwt", token, cookieOptions);
+
+  res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
+};
+
+exports.getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        user,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};

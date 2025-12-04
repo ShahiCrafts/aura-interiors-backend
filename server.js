@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const helmet = require("helmet");
 const morgan = require("morgan");
@@ -5,9 +7,9 @@ const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 const cors = require("cors");
 const csurf = require("csurf");
+const passport = require("./config/passport");
 
 const { connectDatabase } = require("./config/database");
-require("dotenv").config();
 
 connectDatabase();
 
@@ -25,6 +27,7 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 app.use(morgan("dev"));
+app.use(passport.initialize());
 
 if (process.env.NODE_ENV !== "production") {
 } else {
