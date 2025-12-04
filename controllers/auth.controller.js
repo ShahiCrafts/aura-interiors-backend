@@ -251,3 +251,116 @@ exports.getMe = async (req, res) => {
     });
   }
 };
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email, deletedAt: null });
+
+    if (!user) {
+      return res.status(404).json({
+        status: "fail",
+        message: "No user found with this email address",
+      });
+    }
+
+    const resetToken = user.createPasswordResetToken();
+    await user.save({ validateBeforeSave: false });
+
+    const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    const emailHtml = `
+      <div style="font-family: 'Inter', sans-serif; padding: 20px; max-width: 500px; margin: 0 auto;">
+        <h2>Password Reset Request</h2>
+        <p>Hi ${user.firstName},</p>
+        <p>You requested to reset your password. Click the button below to reset it:</p>
+        <a href="${resetURL}" style="display: inline-block; background-color: #111827; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Reset Password</a>
+        <p>This link will expire in 10 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>- Aura Interiors Team</p>
+      </div>
+    `;
+
+    try {
+      await sendEmail(user.email, "Password Reset - Aura Interiors", emailHtml);
+
+      res.status(200).json({
+        status: "success",
+        message: "Password reset link sent to your email",
+      });
+    } catch (emailError) {
+      user.passwordResetToken = undefined;
+      user.passwordResetExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        status: "error",
+        message: "Error sending email. Please try again later.",
+      });
+    }
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid or expired reset token",
+      });
+    }
+
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    createSendToken(user, 200, res);
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
+
+exports.updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user.id).select("+password");
+
+    if (!(await user.correctPassword(currentPassword, user.password))) {
+      return res.status(401).json({
+        status: "fail",
+        message: "Current password is incorrect",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    createSendToken(user, 200, res);
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
