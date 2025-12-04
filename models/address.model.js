@@ -9,8 +9,17 @@ const addressSchema = new mongoose.Schema(
     },
     label: {
       type: String,
-      enum: ["home", "work", "other"],
+      enum: ["home", "work", "family", "other"],
       default: "home",
+    },
+    customLabel: {
+      type: String,
+      trim: true,
+    },
+    type: {
+      type: String,
+      enum: ["delivery", "billing"],
+      default: "delivery",
     },
     fullName: {
       type: String,
@@ -65,14 +74,13 @@ const addressSchema = new mongoose.Schema(
 addressSchema.index({ user: 1 });
 
 // Ensure only one default address per user
-addressSchema.pre("save", async function (next) {
+addressSchema.pre("save", async function () {
   if (this.isDefault) {
     await this.constructor.updateMany(
       { user: this.user, _id: { $ne: this._id } },
       { isDefault: false }
     );
   }
-  next();
 });
 
 const Address = mongoose.model("Address", addressSchema);
