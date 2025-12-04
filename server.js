@@ -43,6 +43,10 @@ app.use(
 
 app.use("/api/v1/auth", require("./routes/auth.routes"));
 app.use("/api/v1/addresses", require("./routes/address.routes"));
+app.use("/api/v1/profile", require("./routes/profile.routes"));
+
+// Serve static files for uploads
+app.use("/uploads", express.static("uploads"));
 
 const PORT = process.env.PORT;
 

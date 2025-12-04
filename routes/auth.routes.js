@@ -13,6 +13,7 @@ router.patch("/reset-password/:token", authController.resetPassword);
 
 router.get("/me", protect, authController.getMe);
 router.patch("/update-password", protect, authController.updatePassword);
+router.post("/logout", authController.logout);
 
 router.get(
   "/google",
