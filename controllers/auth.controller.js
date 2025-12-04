@@ -1,0 +1,218 @@
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+const User = require("../models/user.model");
+const sendEmail = require("../utils/sendEmail");
+const { generateVerificationEmailWithCode } = require("../utils/emailTemplate");
+
+const signToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+  });
+};
+
+const createSendToken = (user, statusCode, res) => {
+  const token = signToken(user._id);
+
+  const cookieOptions = {
+    expires: new Date(
+      Date.now() +
+        (process.env.JWT_COOKIE_EXPIRES_IN || 7) * 24 * 60 * 60 * 1000
+    ),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  };
+
+  res.cookie("jwt", token, cookieOptions);
+
+  user.password = undefined;
+
+  res.status(statusCode).json({
+    status: "success",
+    token,
+    data: {
+      user,
+    },
+  });
+};
+
+exports.signup = async (req, res) => {
+  try {
+    const { email, password, firstName, lastName, phone } = req.body;
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Email already registered",
+      });
+    }
+
+    const user = await User.create({
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+    });
+
+    const verificationCode = user.createEmailVerificationCode();
+    await user.save({ validateBeforeSave: false });
+
+    try {
+      const emailHtml = generateVerificationEmailWithCode(
+        user.firstName,
+        verificationCode
+      );
+      await sendEmail(
+        user.email,
+        "Verify Your Email - Aura Interiors",
+        emailHtml
+      );
+
+      createSendToken(user, 201, res);
+    } catch (emailError) {
+      user.emailVerificationToken = undefined;
+      user.emailVerificationExpires = undefined;
+      await user.save({ validateBeforeSave: false });
+
+      return res.status(500).json({
+        status: "error",
+        message: "Error sending verification email. Please try again.",
+      });
+    }
+  } catch (error) {
+    res.status(400).json({
+      status: "fail",
+      message: error.message,
+    });
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Please provide email and password",
+      });
+    }
+
+    const user = await User.findOne({ email, deletedAt: null }).select(
+      "+password"
+    );
+
+    if (!user || !(await user.correctPassword(password, user.password))) {
+      return res.status(401).json({
+        status: "fail",
+        message: "Invalid email or password",
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({
+        status: "fail",
+        message: "Your account has been deactivated. Please contact support.",
+      });
+    }
+
+    user.updateLoginActivity();
+    await user.save({ validateBeforeSave: false });
+
+    createSendToken(user, 200, res);
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
+
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Please provide verification code",
+      });
+    }
+
+    const hashedCode = crypto.createHash("sha256").update(code).digest("hex");
+
+    const user = await User.findOne({
+      emailVerificationToken: hashedCode,
+      emailVerificationExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Invalid or expired verification code",
+      });
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      status: "success",
+      message: "Email verified successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
+
+exports.resendVerificationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email, deletedAt: null });
+
+    if (!user) {
+      return res.status(404).json({
+        status: "fail",
+        message: "No user found with this email",
+      });
+    }
+
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Email is already verified",
+      });
+    }
+
+    const verificationCode = user.createEmailVerificationCode();
+    await user.save({ validateBeforeSave: false });
+
+    const emailHtml = generateVerificationEmailWithCode(
+      user.firstName,
+      verificationCode
+    );
+    await sendEmail(
+      user.email,
+      "Verify Your Email - Aura Interiors",
+      emailHtml
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Verification code sent to your email",
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};

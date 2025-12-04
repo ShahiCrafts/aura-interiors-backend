@@ -110,7 +110,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-userSchema.index({ email: 1 });
 userSchema.index({ phone: 1 });
 userSchema.index({ createdAt: -1 });
 
@@ -118,15 +117,14 @@ userSchema.virtual("fullName").get(function () {
   return `${this.firstName} ${this.lastName}`;
 });
 
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next;
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
 
   this.password = await bcrypt.hash(this.password, 12);
 
   if (!this.isNew) {
     this.passwordChangedAt = Date.now() - 1000;
   }
-  next();
 });
 
 userSchema.methods.correctPassword = async function (
@@ -160,17 +158,17 @@ userSchema.methods.createPasswordResetToken = function () {
   return resetToken;
 };
 
-userSchema.methods.createEmailVerificationToken = function () {
-  const verificationToken = crypto.randomBytes(32).toString("hex");
+userSchema.methods.createEmailVerificationCode = function () {
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
   this.emailVerificationToken = crypto
     .createHash("sha256")
-    .update(verificationToken)
+    .update(verificationCode)
     .digest("hex");
 
   this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
 
-  return verificationToken;
+  return verificationCode;
 };
 
 userSchema.methods.updateLoginActivity = function () {

@@ -38,7 +38,7 @@ app.use(
   })
 );
 
-app.use("/api/v1", require("./routes/index"));
+app.use("/api/v1/auth", require("./routes/auth.routes"));
 
 const PORT = process.env.PORT;
 
