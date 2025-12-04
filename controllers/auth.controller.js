@@ -38,7 +38,7 @@ const createSendToken = (user, statusCode, res) => {
 
 exports.signup = async (req, res) => {
   try {
-    const { email, password, firstName, lastName, phone } = req.body;
+    const { email, password, firstName, lastName } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -53,7 +53,6 @@ exports.signup = async (req, res) => {
       password,
       firstName,
       lastName,
-      phone,
     });
 
     const verificationCode = user.createEmailVerificationCode();
