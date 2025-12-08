@@ -10,6 +10,8 @@ const csurf = require("csurf");
 const passport = require("./config/passport");
 
 const { connectDatabase } = require("./config/database");
+const globalErrorHandler = require("./middleware/error.middleware");
+const AppError = require("./utils/AppError");
 
 connectDatabase();
 
@@ -44,12 +46,22 @@ app.use(
 app.use("/api/v1/auth", require("./routes/auth.routes"));
 app.use("/api/v1/addresses", require("./routes/address.routes"));
 app.use("/api/v1/profile", require("./routes/profile.routes"));
+app.use("/api/v1/categories", require("./routes/category.routes"));
+app.use("/api/v1/products", require("./routes/product.routes"));
 
 // Serve static files for uploads
 app.use("/uploads", express.static("uploads"));
 
+// Handle undefined routes
+app.all("*", (req, res, next) => {
+  next(new AppError(`Cannot find ${req.originalUrl} on this server`, 404));
+});
+
+// Global error handler
+app.use(globalErrorHandler);
+
 const PORT = process.env.PORT;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on PORT ${PORT}`);
+  console.log(`Server running on PORT ${PORT}`);
 });

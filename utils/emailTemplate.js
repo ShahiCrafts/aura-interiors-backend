@@ -5,7 +5,7 @@ const generateVerificationEmailWithCode = (name, verificationCode) => {
         
         <!-- Logo -->
         <div style="padding: 32px 0;">
-          <img src="https://yourdomain.com/aura-logo.png" alt="Aura Interiors Logo" width="60" style="margin-bottom: 16px;">
+          <img src="https://aurainteriors.com/aura-logo.png" alt="Aura Interiors Logo" width="60" style="margin-bottom: 16px;">
         </div>
 
         <!-- Greeting -->

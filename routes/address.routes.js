@@ -3,7 +3,6 @@ const router = express.Router();
 const addressController = require("../controllers/address.controller");
 const { protect } = require("../middleware/auth.middleware");
 
-// All routes require authentication
 router.use(protect);
 
 router.get("/", addressController.getAllAddresses);

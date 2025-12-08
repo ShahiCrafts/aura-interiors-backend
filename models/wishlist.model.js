@@ -27,10 +27,8 @@ const wishlistSchema = new mongoose.Schema(
   }
 );
 
-// Index for user lookup
 wishlistSchema.index({ user: 1 });
 
-// Method to add product to wishlist
 wishlistSchema.methods.addProduct = async function (productId) {
   const exists = this.products.some(
     (item) => item.product.toString() === productId.toString()
@@ -44,7 +42,6 @@ wishlistSchema.methods.addProduct = async function (productId) {
   return this;
 };
 
-// Method to remove product from wishlist
 wishlistSchema.methods.removeProduct = async function (productId) {
   this.products = this.products.filter(
     (item) => item.product.toString() !== productId.toString()
@@ -52,7 +49,6 @@ wishlistSchema.methods.removeProduct = async function (productId) {
   return this.save();
 };
 
-// Method to check if product is in wishlist
 wishlistSchema.methods.hasProduct = function (productId) {
   return this.products.some(
     (item) => item.product.toString() === productId.toString()

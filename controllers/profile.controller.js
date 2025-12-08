@@ -59,7 +59,6 @@ exports.updateAvatar = async (req, res) => {
       });
     }
 
-    // Delete old avatar if exists
     const currentUser = await User.findById(req.user.id);
     if (currentUser.avatar) {
       const oldAvatarPath = path.join(
@@ -172,7 +171,6 @@ exports.updatePreferences = async (req, res) => {
 
 exports.deleteAccount = async (req, res) => {
   try {
-    // Soft delete
     await User.findByIdAndUpdate(req.user.id, {
       isActive: false,
       deletedAt: Date.now(),

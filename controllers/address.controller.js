@@ -68,7 +68,9 @@ exports.createAddress = async (req, res) => {
     } = req.body;
 
     // If this is the first address, make it default
-    const existingAddresses = await Address.countDocuments({ user: req.user.id });
+    const existingAddresses = await Address.countDocuments({
+      user: req.user.id,
+    });
     const shouldBeDefault = existingAddresses === 0 ? true : isDefault;
 
     const address = await Address.create({
@@ -130,7 +132,6 @@ exports.updateAddress = async (req, res) => {
       });
     }
 
-    // Update fields
     if (label !== undefined) address.label = label;
     if (customLabel !== undefined) address.customLabel = customLabel;
     if (type !== undefined) address.type = type;
@@ -177,7 +178,6 @@ exports.deleteAddress = async (req, res) => {
     const wasDefault = address.isDefault;
     await Address.findByIdAndDelete(req.params.id);
 
-    // If deleted address was default, set another as default
     if (wasDefault) {
       const nextAddress = await Address.findOne({ user: req.user.id }).sort({
         createdAt: -1,

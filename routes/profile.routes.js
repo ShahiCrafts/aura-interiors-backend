@@ -4,7 +4,6 @@ const profileController = require("../controllers/profile.controller");
 const { protect } = require("../middleware/auth.middleware");
 const { uploadAvatar, resizeAvatar } = require("../middleware/upload.middleware");
 
-// All routes require authentication
 router.use(protect);
 
 router.get("/", profileController.getProfile);

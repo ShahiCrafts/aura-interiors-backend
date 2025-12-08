@@ -70,10 +70,8 @@ const addressSchema = new mongoose.Schema(
   }
 );
 
-// Index for faster user address lookups
 addressSchema.index({ user: 1 });
 
-// Ensure only one default address per user
 addressSchema.pre("save", async function () {
   if (this.isDefault) {
     await this.constructor.updateMany(
