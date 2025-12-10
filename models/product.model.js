@@ -96,11 +96,37 @@ const productSchema = new mongoose.Schema(
         },
       },
     ],
-    // 3D Model support for AR viewing
+    // 3D Model support for AR viewing (legacy single URL field)
     modelUrl: {
       type: String,
       trim: true,
     },
+    // Multiple 3D models for cross-platform AR support (files or URLs)
+    modelFiles: [
+      {
+        url: {
+          type: String,
+          required: true,
+        },
+        format: {
+          type: String,
+          enum: ['glb', 'gltf', 'usdz'],
+          required: true,
+        },
+        platform: {
+          type: String,
+          enum: ['android', 'ios', 'universal'],
+          default: 'universal',
+        },
+        fileSize: {
+          type: Number,
+        },
+        isExternal: {
+          type: Boolean,
+          default: false, // false = uploaded file, true = external URL
+        },
+      },
+    ],
     arAvailable: {
       type: Boolean,
       default: false,
@@ -134,7 +160,16 @@ const productSchema = new mongoose.Schema(
     // Style classification
     style: {
       type: String,
-      enum: ["modern", "contemporary", "classic", "minimal", "cozy", "industrial", "scandinavian", "bohemian"],
+      enum: [
+        "modern",
+        "contemporary",
+        "classic",
+        "minimal",
+        "cozy",
+        "industrial",
+        "scandinavian",
+        "bohemian",
+      ],
       trim: true,
     },
     // Ratings and reviews
@@ -192,27 +227,32 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// Indexes for efficient queries
+// Indexes for efficient queries (slug index created by unique: true)
 productSchema.index({ name: "text", description: "text", tags: "text" });
 productSchema.index({ category: 1 });
 productSchema.index({ status: 1 });
 productSchema.index({ price: 1 });
 productSchema.index({ createdAt: -1 });
 productSchema.index({ isFeatured: 1 });
-productSchema.index({ slug: 1 });
 productSchema.index({ deletedAt: 1 });
 
 // Virtual for discount percentage
 productSchema.virtual("discountPercentage").get(function () {
   if (this.originalPrice && this.originalPrice > this.price) {
-    return Math.round(((this.originalPrice - this.price) / this.originalPrice) * 100);
+    return Math.round(
+      ((this.originalPrice - this.price) / this.originalPrice) * 100
+    );
   }
   return 0;
 });
 
 // Virtual for in stock status
 productSchema.virtual("inStock").get(function () {
-  return this.stock > 0 && this.status !== "out_of_stock" && this.status !== "discontinued";
+  return (
+    this.stock > 0 &&
+    this.status !== "out_of_stock" &&
+    this.status !== "discontinued"
+  );
 });
 
 // Virtual for primary image
@@ -232,22 +272,28 @@ productSchema.pre("save", function (next) {
     this.slug = `${baseSlug}-${Date.now().toString(36)}`;
   }
 
-  // Auto-set arAvailable based on modelUrl
-  if (this.isModified("modelUrl")) {
-    this.arAvailable = !!this.modelUrl;
+  // Auto-set arAvailable based on modelUrl or modelFiles
+  if (this.isModified("modelUrl") || this.isModified("modelFiles")) {
+    this.arAvailable = !!this.modelUrl || (this.modelFiles && this.modelFiles.length > 0);
   }
 
   // Auto-update status based on stock
-  if (this.isModified("stock") && this.stock === 0 && this.status === "active") {
+  if (
+    this.isModified("stock") &&
+    this.stock === 0 &&
+    this.status === "active"
+  ) {
     this.status = "out_of_stock";
   }
-
-  next();
 });
 
 // Static method to find active products (not deleted)
 productSchema.statics.findActive = function (filter = {}) {
-  return this.find({ ...filter, deletedAt: null, status: { $ne: "discontinued" } });
+  return this.find({
+    ...filter,
+    deletedAt: null,
+    status: { $ne: "discontinued" },
+  });
 };
 
 // Static method for soft delete

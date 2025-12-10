@@ -6,6 +6,7 @@ const AppError = require("../utils/AppError");
 const { deleteFile, deleteFiles } = require("../middleware/upload.middleware");
 
 const UPLOADS_DIR = path.join(__dirname, "../uploads/products");
+const MODELS_DIR = path.join(__dirname, "../uploads/models");
 
 const parseJsonField = (field) => {
   if (!field) return undefined;
@@ -142,6 +143,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
     sku,
     status,
     modelUrl,
+    modelUrls, // Array of external model URLs
     dimensions,
     weight,
     colors,
@@ -183,13 +185,46 @@ exports.createProduct = catchAsync(async (req, res, next) => {
     tags: parseJsonField(tags),
   };
 
-  // Handle images if uploaded
-  if (req.files && req.files.length > 0) {
-    productData.images = req.files.map((file, index) => ({
+  // Handle images if uploaded (supports both array and fields format)
+  const imageFiles = req.files?.images || (Array.isArray(req.files) ? req.files : []);
+  if (imageFiles.length > 0) {
+    productData.images = imageFiles.map((file, index) => ({
       url: file.filename,
       alt: name,
       isPrimary: index === 0,
     }));
+  }
+
+  // Initialize modelFiles array
+  productData.modelFiles = [];
+
+  // Handle 3D model files if uploaded
+  if (req.files?.modelFiles && req.files.modelFiles.length > 0) {
+    const uploadedModels = req.files.modelFiles.map((file) => ({
+      url: file.filename,
+      format: file.format,
+      platform: file.platform,
+      fileSize: file.fileSize,
+      isExternal: false,
+    }));
+    productData.modelFiles.push(...uploadedModels);
+  }
+
+  // Handle external model URLs
+  if (modelUrls) {
+    const parsedUrls = parseJsonField(modelUrls) || [];
+    const externalModels = parsedUrls.map((model) => ({
+      url: model.url,
+      format: model.format,
+      platform: model.platform || (model.format === 'usdz' ? 'ios' : 'android'),
+      isExternal: true,
+    }));
+    productData.modelFiles.push(...externalModels);
+  }
+
+  // Clean up empty modelFiles array
+  if (productData.modelFiles.length === 0) {
+    delete productData.modelFiles;
   }
 
   const product = await Product.create(productData);
@@ -222,6 +257,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
     sku,
     status,
     modelUrl,
+    modelUrls, // Array of external model URLs to add
     dimensions,
     weight,
     colors,
@@ -233,6 +269,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
     metaDescription,
     tags,
     removeImages,
+    removeModelFiles,
   } = req.body;
 
   // Verify category if being updated
@@ -279,9 +316,24 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
     product.images = product.images.filter((img) => !imagesToRemove.includes(img.url));
   }
 
-  // Handle new images
-  if (req.files && req.files.length > 0) {
-    const newImages = req.files.map((file) => ({
+  // Handle 3D model file removal (only delete files for non-external models)
+  if (removeModelFiles) {
+    const modelsToRemove = parseJsonField(removeModelFiles) || [];
+    // Only delete files for uploaded models (not external URLs)
+    const uploadedModelsToRemove = product.modelFiles
+      .filter((model) => modelsToRemove.includes(model.url) && !model.isExternal)
+      .map((model) => model.url);
+    if (uploadedModelsToRemove.length > 0) {
+      const modelFilePaths = uploadedModelsToRemove.map((modelUrl) => path.join(MODELS_DIR, modelUrl));
+      await deleteFiles(modelFilePaths);
+    }
+    product.modelFiles = product.modelFiles.filter((model) => !modelsToRemove.includes(model.url));
+  }
+
+  // Handle new images (supports both array and fields format)
+  const imageFiles = req.files?.images || (Array.isArray(req.files) ? req.files : []);
+  if (imageFiles.length > 0) {
+    const newImages = imageFiles.map((file) => ({
       url: file.filename,
       alt: product.name,
       isPrimary: false,
@@ -293,6 +345,40 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
     }
 
     product.images.push(...newImages);
+  }
+
+  // Handle new 3D model files (uploaded)
+  if (req.files?.modelFiles && req.files.modelFiles.length > 0) {
+    const newModelFiles = req.files.modelFiles.map((file) => ({
+      url: file.filename,
+      format: file.format,
+      platform: file.platform,
+      fileSize: file.fileSize,
+      isExternal: false,
+    }));
+
+    if (!product.modelFiles) {
+      product.modelFiles = [];
+    }
+    product.modelFiles.push(...newModelFiles);
+  }
+
+  // Handle new external model URLs
+  if (modelUrls) {
+    const parsedUrls = parseJsonField(modelUrls) || [];
+    if (parsedUrls.length > 0) {
+      const externalModels = parsedUrls.map((model) => ({
+        url: model.url,
+        format: model.format,
+        platform: model.platform || (model.format === 'usdz' ? 'ios' : 'android'),
+        isExternal: true,
+      }));
+
+      if (!product.modelFiles) {
+        product.modelFiles = [];
+      }
+      product.modelFiles.push(...externalModels);
+    }
   }
 
   await product.save();
@@ -334,6 +420,12 @@ exports.hardDeleteProduct = catchAsync(async (req, res, next) => {
   if (product.images && product.images.length > 0) {
     const filePaths = product.images.map((image) => path.join(UPLOADS_DIR, image.url));
     await deleteFiles(filePaths);
+  }
+
+  // Delete 3D model files from filesystem
+  if (product.modelFiles && product.modelFiles.length > 0) {
+    const modelFilePaths = product.modelFiles.map((model) => path.join(MODELS_DIR, model.url));
+    await deleteFiles(modelFilePaths);
   }
 
   await Product.findByIdAndDelete(req.params.id);

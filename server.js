@@ -17,7 +17,11 @@ connectDatabase();
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 app.use(
   cors({
@@ -52,8 +56,8 @@ app.use("/api/v1/products", require("./routes/product.routes"));
 // Serve static files for uploads
 app.use("/uploads", express.static("uploads"));
 
-// Handle undefined routes
-app.all("*", (req, res, next) => {
+// Handle undefined routes (Express 5 syntax)
+app.use((req, res, next) => {
   next(new AppError(`Cannot find ${req.originalUrl} on this server`, 404));
 });
 

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const productController = require("../controllers/product.controller");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
-const { uploadProductImages, resizeProductImages } = require("../middleware/upload.middleware");
+const { uploadProductFiles, processProductFiles } = require("../middleware/upload.middleware");
 const validate = require("../middleware/validate.middleware");
 const {
   createProductSchema,
@@ -24,16 +24,16 @@ router.use(protect, restrictTo("admin"));
 
 router.post(
   "/",
-  uploadProductImages,
-  resizeProductImages,
+  uploadProductFiles,
+  processProductFiles,
   validate(createProductSchema),
   productController.createProduct
 );
 
 router.patch(
   "/:id",
-  uploadProductImages,
-  resizeProductImages,
+  uploadProductFiles,
+  processProductFiles,
   validate(updateProductSchema),
   productController.updateProduct
 );
