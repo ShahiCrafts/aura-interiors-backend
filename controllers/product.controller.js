@@ -39,6 +39,7 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
     maxPrice,
     colors,
     materials,
+    minRating,
     search,
     featured,
     newArrivals,
@@ -84,6 +85,11 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
     if (materialList.length > 0) {
       filter.materials = { $in: materialList.map((m) => new RegExp(`^${m}$`, "i")) };
     }
+  }
+
+  // Handle rating filter
+  if (minRating) {
+    filter["rating.average"] = { $gte: parseFloat(minRating) };
   }
 
   if (featured === "true") {
