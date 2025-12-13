@@ -33,6 +33,7 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
     limit = 20,
     sort = "-createdAt",
     category,
+    categories,
     status,
     style,
     minPrice,
@@ -49,9 +50,22 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
   // Build filter
   const filter = { deletedAt: null };
 
+  // Handle category filter by ID (legacy)
   if (category) {
-    const categories = category.split(",");
-    filter.category = { $in: categories };
+    const categoryIds = category.split(",");
+    filter.category = { $in: categoryIds };
+  }
+
+  // Handle categories filter by slug (new)
+  if (categories) {
+    const categorySlugs = categories.split(",").filter(Boolean);
+    if (categorySlugs.length > 0) {
+      const categoryDocs = await Category.find({ slug: { $in: categorySlugs } }).select("_id");
+      const categoryIds = categoryDocs.map((cat) => cat._id);
+      if (categoryIds.length > 0) {
+        filter.category = { $in: categoryIds };
+      }
+    }
   }
 
   if (status) {
