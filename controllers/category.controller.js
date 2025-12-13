@@ -201,7 +201,7 @@ exports.deleteCategory = catchAsync(async (req, res, next) => {
 // Get category products
 exports.getCategoryProducts = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const { page = 1, limit = 20, sort = "-createdAt" } = req.query;
+  const { page = 1, limit = 20, sort = "-createdAt", search } = req.query;
 
   // Check if it's an ObjectId or slug
   const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
@@ -215,18 +215,28 @@ exports.getCategoryProducts = catchAsync(async (req, res, next) => {
 
   const pageNum = parseInt(page, 10);
   const limitNum = parseInt(limit, 10);
+  const skip = (pageNum - 1) * limitNum;
 
-  const products = await Product.getByCategory(category._id, {
-    page: pageNum,
-    limit: limitNum,
-    sort,
-  });
-
-  const total = await Product.countDocuments({
+  // Build filter for products
+  const filter = {
     category: category._id,
     deletedAt: null,
     status: { $in: ["active", "out_of_stock"] },
-  });
+  };
+
+  // Handle search
+  if (search) {
+    filter.$text = { $search: search };
+  }
+
+  const [products, total] = await Promise.all([
+    Product.find(filter)
+      .populate("category", "name slug")
+      .sort(sort)
+      .skip(skip)
+      .limit(limitNum),
+    Product.countDocuments(filter),
+  ]);
 
   res.status(200).json({
     status: "success",
