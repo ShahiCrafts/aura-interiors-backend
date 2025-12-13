@@ -201,7 +201,7 @@ exports.deleteCategory = catchAsync(async (req, res, next) => {
 // Get category products
 exports.getCategoryProducts = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const { page = 1, limit = 20, sort = "-createdAt", search, minPrice, maxPrice } = req.query;
+  const { page = 1, limit = 20, sort = "-createdAt", search, minPrice, maxPrice, colors, materials } = req.query;
 
   // Check if it's an ObjectId or slug
   const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
@@ -234,6 +234,22 @@ exports.getCategoryProducts = catchAsync(async (req, res, next) => {
     filter.price = {};
     if (minPrice) filter.price.$gte = parseFloat(minPrice);
     if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+  }
+
+  // Handle colors filter (case-insensitive)
+  if (colors) {
+    const colorList = colors.split(",").filter(Boolean);
+    if (colorList.length > 0) {
+      filter.colors = { $in: colorList.map((c) => new RegExp(`^${c}$`, "i")) };
+    }
+  }
+
+  // Handle materials filter (case-insensitive)
+  if (materials) {
+    const materialList = materials.split(",").filter(Boolean);
+    if (materialList.length > 0) {
+      filter.materials = { $in: materialList.map((m) => new RegExp(`^${m}$`, "i")) };
+    }
   }
 
   const [products, total] = await Promise.all([

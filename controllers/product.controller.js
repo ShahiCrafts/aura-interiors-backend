@@ -37,6 +37,8 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
     style,
     minPrice,
     maxPrice,
+    colors,
+    materials,
     search,
     featured,
     newArrivals,
@@ -66,6 +68,22 @@ exports.getAllProducts = catchAsync(async (req, res, next) => {
     filter.price = {};
     if (minPrice) filter.price.$gte = parseFloat(minPrice);
     if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+  }
+
+  // Handle colors filter (case-insensitive)
+  if (colors) {
+    const colorList = colors.split(",").filter(Boolean);
+    if (colorList.length > 0) {
+      filter.colors = { $in: colorList.map((c) => new RegExp(`^${c}$`, "i")) };
+    }
+  }
+
+  // Handle materials filter (case-insensitive)
+  if (materials) {
+    const materialList = materials.split(",").filter(Boolean);
+    if (materialList.length > 0) {
+      filter.materials = { $in: materialList.map((m) => new RegExp(`^${m}$`, "i")) };
+    }
   }
 
   if (featured === "true") {
