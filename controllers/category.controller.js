@@ -201,7 +201,7 @@ exports.deleteCategory = catchAsync(async (req, res, next) => {
 // Get category products
 exports.getCategoryProducts = catchAsync(async (req, res, next) => {
   const { id } = req.params;
-  const { page = 1, limit = 20, sort = "-createdAt", search } = req.query;
+  const { page = 1, limit = 20, sort = "-createdAt", search, minPrice, maxPrice } = req.query;
 
   // Check if it's an ObjectId or slug
   const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
@@ -227,6 +227,13 @@ exports.getCategoryProducts = catchAsync(async (req, res, next) => {
   // Handle search
   if (search) {
     filter.$text = { $search: search };
+  }
+
+  // Handle price range filter
+  if (minPrice || maxPrice) {
+    filter.price = {};
+    if (minPrice) filter.price.$gte = parseFloat(minPrice);
+    if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
   }
 
   const [products, total] = await Promise.all([
