@@ -52,6 +52,7 @@ app.use("/api/v1/addresses", require("./routes/address.routes"));
 app.use("/api/v1/profile", require("./routes/profile.routes"));
 app.use("/api/v1/categories", require("./routes/category.routes"));
 app.use("/api/v1/products", require("./routes/product.routes"));
+app.use("/api/v1/wishlist", require("./routes/wishlist.routes"));
 
 // Serve static files for uploads
 app.use("/uploads", express.static("uploads"));
