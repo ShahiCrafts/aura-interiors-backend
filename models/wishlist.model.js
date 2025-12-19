@@ -27,8 +27,6 @@ const wishlistSchema = new mongoose.Schema(
   }
 );
 
-wishlistSchema.index({ user: 1 });
-
 wishlistSchema.methods.addProduct = async function (productId) {
   const exists = this.products.some(
     (item) => item.product.toString() === productId.toString()
