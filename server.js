@@ -54,6 +54,7 @@ app.use("/api/v1/categories", require("./routes/category.routes"));
 app.use("/api/v1/products", require("./routes/product.routes"));
 app.use("/api/v1/wishlist", require("./routes/wishlist.routes"));
 app.use("/api/v1/cart", require("./routes/cart.routes"));
+app.use("/api/v1/discounts", require("./routes/discount.routes"));
 
 // Serve static files for uploads
 app.use("/uploads", express.static("uploads"));
