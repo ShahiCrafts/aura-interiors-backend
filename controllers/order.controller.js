@@ -6,6 +6,8 @@ const Discount = require("../models/discount.model");
 const Address = require("../models/address.model");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/AppError");
+const sendEmail = require("../utils/sendEmail");
+const { generateOrderConfirmationEmail } = require("../utils/emailTemplate");
 
 // eSewa ePay v2 Configuration
 const ESEWA_CONFIG = {
@@ -108,6 +110,22 @@ const calculateOrderTotals = async (items, discountCode) => {
 
 // Backend URL for eSewa callbacks
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
+
+// Helper function to send order confirmation email
+const sendOrderConfirmationEmail = async (order) => {
+  try {
+    const emailHtml = generateOrderConfirmationEmail(order);
+    await sendEmail(
+      order.guestInfo.email,
+      `Order Confirmed - #${order.orderId} | Aura Interiors`,
+      emailHtml
+    );
+    return true;
+  } catch (error) {
+    console.error("Failed to send order confirmation email:", error.message);
+    return false;
+  }
+};
 
 // Generate eSewa ePay v2 payment data with signature
 const generateEsewaPaymentData = (order) => {
@@ -214,6 +232,9 @@ exports.guestCheckout = catchAsync(async (req, res, next) => {
   order.addStatusHistory("confirmed", "Cash on Delivery order confirmed");
   await order.save();
 
+  // Send order confirmation email
+  const emailSent = await sendOrderConfirmationEmail(order);
+
   res.status(201).json({
     success: true,
     message: "Order placed successfully!",
@@ -225,6 +246,7 @@ exports.guestCheckout = catchAsync(async (req, res, next) => {
         total: order.total,
         email: order.guestInfo.email,
       },
+      emailSent,
     },
   });
 });
@@ -368,6 +390,9 @@ exports.authenticatedCheckout = catchAsync(async (req, res, next) => {
   order.addStatusHistory("confirmed", "Cash on Delivery order confirmed");
   await order.save();
 
+  // Send order confirmation email
+  const emailSent = await sendOrderConfirmationEmail(order);
+
   res.status(201).json({
     success: true,
     message: "Order placed successfully!",
@@ -377,7 +402,9 @@ exports.authenticatedCheckout = catchAsync(async (req, res, next) => {
         orderStatus: order.orderStatus,
         paymentMethod: order.paymentMethod,
         total: order.total,
+        email: order.guestInfo.email,
       },
+      emailSent,
     },
   });
 });
@@ -612,7 +639,10 @@ exports.esewaSuccess = catchAsync(async (req, res, next) => {
   order.addStatusHistory("confirmed", "Payment confirmed via eSewa");
   await order.save();
 
-  res.redirect(`${FRONTEND_URL}/order-confirmation/${order.orderId}?email=${encodeURIComponent(order.guestInfo.email)}`);
+  // Send order confirmation email
+  await sendOrderConfirmationEmail(order);
+
+  res.redirect(`${FRONTEND_URL}/order-confirmation/${order.orderId}?email=${encodeURIComponent(order.guestInfo.email)}&emailSent=true`);
 });
 
 exports.esewaFailure = catchAsync(async (req, res, next) => {
